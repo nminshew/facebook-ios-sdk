@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright 2012 Facebook
+# Copyright 2010-present Facebook.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,8 +21,9 @@
 . ${FB_SDK_SCRIPT:-$(dirname $0)}/common.sh
 
 # process options, valid arguments -c [Debug|Release] -n 
-BUILDCONFIGURATION=Release
-while getopts ":nc:" OPTNAME
+BUILDCONFIGURATION=Debug
+NOEXTRAS=1
+while getopts ":ntc:" OPTNAME
 do
   case "$OPTNAME" in
     "c")
@@ -31,10 +32,14 @@ do
     "n")
       NOEXTRAS=1
       ;;
+    "t")
+      NOEXTRAS=0
+      ;;
     "?")
       echo "$0 -c [Debug|Release] -n"
-      echo "       -c sets configuration"
-      echo "       -n no test run"
+      echo "       -c sets configuration (default=Debug)"
+      echo "       -n no test run (default)"
+      echo "       -t test run"
       die
       ;;
     ":")
@@ -69,6 +74,7 @@ cd $FB_SDK_SRC
 function xcode_build_target() {
   echo "Compiling for platform: ${1}."
   $XCODEBUILD \
+    RUN_CLANG_STATIC_ANALYZER=NO \
     -target "facebook-ios-sdk" \
     -sdk $1 \
     -configuration "${2}" \
@@ -131,10 +137,6 @@ do
     || die "Error building framework while copying deprecated SDK headers"
 done
 \cp \
-  $FB_SDK_SRC/JSON/*.h \
-  $FB_SDK_FRAMEWORK/Versions/A/DeprecatedHeaders \
-  || die "Error building framework while copying deprecated JSON headers"
-\cp \
   $FB_SDK_SRC/Framework/Resources/* \
   $FB_SDK_FRAMEWORK/Versions/A/Resources \
   || die "Error building framework while copying Resources"
@@ -164,7 +166,7 @@ if [ ${NOEXTRAS:-0} -eq  1 ];then
 else
   progress_message "Running unit tests."
   cd $FB_SDK_SRC
-  $XCODEBUILD -sdk iphonesimulator -configuration Debug -scheme facebook-ios-sdk-tests build
+  $FB_SDK_SCRIPT/run_tests.sh -c $BUILDCONFIGURATION facebook-ios-sdk-tests
 fi
 
 # -----------------------------------------------------------------------------
